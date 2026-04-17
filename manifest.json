@@ -1,0 +1,24 @@
+{
+  "name": "極簡記帳本",
+  "short_name": "記帳 App",
+  "description": "極簡美學的手機記帳工具",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fafd",
+  "theme_color": "#6c5ce7",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2654/2654416.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2654/2654416.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#6c5ce7">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="極簡記帳本">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2654/2654416.png">
+    <link rel="manifest" href="./manifest.json?v=2">
+    <title>極簡記帳本</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #6c5ce7; --bg: #f8fafd; --text: #2c3e50; --card-bg: #ffffff; --accent: #ff7675; --success: #00b894; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+        html, body { height: 100%; height: -webkit-fill-available; margin: 0; padding: 0; overflow: hidden; }
+        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background-color: var(--bg); color: var(--text); display: flex; justify-content: center; width: 100vw; }
+        .container { width: 100%; max-width: 500px; height: 100%; display: flex; flex-direction: column; padding: 15px 15px calc(15px + env(safe-area-inset-bottom)); }
+        
+        .tabs { display: flex; flex-shrink: 0; background: #e9ecef; border-radius: 12px; padding: 4px; margin-bottom: 12px; }
+        .tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; border-radius: 10px; font-weight: 600; transition: 0.3s; color: #636e72; font-size: 0.9em; }
+        .tab.active { background: var(--card-bg); color: var(--primary); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        
+        .view { display: none; flex: 1; flex-direction: column; height: 100%; overflow: hidden; animation: fadeIn 0.3s ease; }
+        .view.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        #input-view { justify-content: flex-start; }
+        .input-header { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; margin-bottom: 8px; }
+        .date-selector { border: none; background: #eee; padding: 6px 10px; border-radius: 8px; font-weight: bold; font-size: 0.85em; font-family: inherit; }
+        
+        .display { background: linear-gradient(135deg, var(--primary), #a29bfe); color: white; font-size: 2.5em; text-align: right; padding: 15px 20px; border-radius: 18px; box-shadow: 0 8px 20px rgba(108, 92, 231, 0.2); flex-shrink: 0; position: relative; min-height: 80px; display: flex; align-items: center; justify-content: flex-end; margin-bottom: 12px; }
+        .edit-mode-label { position: absolute; left: 12px; top: 8px; font-size: 0.3em; background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.3);}
+        
+        .input-body { flex: 1; display: flex; flex-direction: column; justify-content: space-around; overflow: hidden; min-height: 0; }
+        .categories { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+        .category { background: var(--card-bg); padding: 12px 5px; text-align: center; border-radius: 12px; cursor: pointer; font-size: 0.85em; box-shadow: 0 2px 4px rgba(0,0,0,0.02); border: 2px solid transparent; transition: 0.2s; }
+        .category.selected { border-color: var(--primary); background: #f0f7ff; color: var(--primary); font-weight: bold; transform: scale(1.02); }
+        
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 5px; }
+        .key { background: var(--card-bg); padding: 14px; text-align: center; border-radius: 12px; font-size: 1.2em; font-weight: 600; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.03); transition: 0.1s; }
+        .key:active { background: #f1f2f6; transform: scale(0.95); }
+        
+        .action-area { flex-shrink: 0; margin-top: auto; padding-top: 10px; }
+        .btn-main { width: 100%; border: none; border-radius: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; height: 55px; }
+        .btn-submit { background: var(--success); color: white; font-size: 1.1em; box-shadow: 0 6px 15px rgba(0, 184, 148, 0.2); }
+        .btn-cancel { background: #fab1a0; color: #d63031; display: none; font-size: 0.9em; margin-top: 8px; }
+
+        #analysis-view { gap: 10px; }
+        .chart-container { background: var(--card-bg); padding: 12px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); flex-shrink: 0; }
+        .chart-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .month-picker { border: none; background: #eee; padding: 5px 8px; border-radius: 6px; font-size: 0.85em; font-weight: bold; font-family: inherit; }
+        .btn-group { display: flex; gap: 5px; }
+        .btn-sm { padding: 4px 10px; border-radius: 5px; border: 1px solid var(--primary); background: white; color: var(--primary); cursor: pointer; font-size: 0.75em; }
+        .btn-sm.active { background: var(--primary); color: white; }
+        
+        .list-container { flex: 1; background: var(--card-bg); border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+        .list-header { padding: 10px 15px; border-bottom: 1px solid #eee; font-weight: bold; flex-shrink: 0; font-size: 0.9em; display: flex; justify-content: space-between; }
+        .scroll-area { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .details-table { width: 100%; border-collapse: collapse; }
+        .details-table td { padding: 10px 15px; border-bottom: 1px solid #f8f9fa; font-size: 0.85em; }
+        .action-btns { display: flex; gap: 12px; font-size: 1.1em; justify-content: flex-end; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="tabs">
+            <div id="tab-input" class="tab active" onclick="switchView('input')">記帳</div>
+            <div id="tab-analysis" class="tab" onclick="switchView('analysis')">分析</div>
+        </div>
+
+        <div id="input-view" class="view active">
+            <div class="input-header">
+                <span style="font-size: 0.85em; color: #636e72; font-weight: 600;">📅 日期</span>
+                <input type="date" id="tx-date" class="date-selector">
+            </div>
+            <div class="display" id="display">
+                <span id="edit-mode-label" class="edit-mode-label">編輯模式</span>
+                <span id="amount-text">0</span>
+            </div>
+            <div class="input-body">
+                <div class="categories" id="categories">
+                    <div class="category" onclick="selectCat('飲食')">🍔 飲食</div>
+                    <div class="category" onclick="selectCat('交通')">🚌 交通</div>
+                    <div class="category" onclick="selectCat('購物')">🛒 購物</div>
+                    <div class="category" onclick="selectCat('帳單')">🧾 帳單</div>
+                    <div class="category" onclick="selectCat('娛樂')">🎬 娛樂</div>
+                    <div class="category" onclick="selectCat('其他')">📦 其他</div>
+                </div>
+                <div class="keypad">
+                    <div class="key" onclick="press('1')">1</div><div class="key" onclick="press('2')">2</div><div class="key" onclick="press('3')">3</div>
+                    <div class="key" onclick="press('4')">4</div><div class="key" onclick="press('5')">5</div><div class="key" onclick="press('6')">6</div>
+                    <div class="key" onclick="press('7')">7</div><div class="key" onclick="press('8')">8</div><div class="key" onclick="press('9')">9</div>
+                    <div class="key" onclick="press('C')">C</div><div class="key" onclick="press('0')">0</div><div class="key" onclick="press('⌫')">⌫</div>
+                </div>
+            </div>
+            <div class="action-area">
+                <button id="btn-submit" class="btn-main btn-submit" onclick="submit()">確認送出</button>
+                <button id="btn-cancel" class="btn-main btn-cancel" onclick="cancelEdit()">取消編輯並返回</button>
+            </div>
+        </div>
+
+        <div id="analysis-view" class="view">
+            <div class="chart-container">
+                <div class="chart-controls">
+                    <input type="month" id="month-input" class="month-picker" onchange="loadAnalysisData()">
+                    <div class="btn-group">
+                        <button id="btn-doughnut" class="btn-sm active" onclick="setChartType('doughnut')">圓餅</button>
+                        <button id="btn-line" class="btn-sm" onclick="setChartType('line')">趨勢</button>
+                    </div>
+                </div>
+                <div style="height: 160px; position: relative;">
+                    <canvas id="expenseChart"></canvas>
+                </div>
+            </div>
+            <div class="list-container">
+                <div class="list-header">
+                    <span>📊 本月明細</span>
+                    <span id="total-amount" style="color: var(--accent);">$0</span>
+                </div>
+                <div class="scroll-area">
+                    <table class="details-table">
+                        <tbody id="details-list"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 資料儲存邏輯 (LocalStorage) ---
+        let txData = JSON.parse(localStorage.getItem('expense_data') || '[]');
+        
+        function saveToLocal() {
+            localStorage.setItem('expense_data', JSON.stringify(txData));
+        }
+
+        // --- 介面邏輯 ---
+        let currentAmount = "0";
+        let selectedCategory = "";
+        let chart = null;
+        let chartType = 'doughnut';
+        let editId = null;
+
+        document.getElementById('month-input').value = new Date().toISOString().slice(0, 7);
+        document.getElementById('tx-date').value = new Date().toISOString().split('T')[0];
+
+        function switchView(view) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            if (view === 'input') {
+                document.getElementById('input-view').classList.add('active');
+                document.getElementById('tab-input').classList.add('active');
+            } else {
+                document.getElementById('analysis-view').classList.add('active');
+                document.getElementById('tab-analysis').classList.add('active');
+                loadAnalysisData();
+            }
+        }
+
+        function setChartType(type) {
+            chartType = type;
+            document.getElementById('btn-doughnut').classList.toggle('active', type === 'doughnut');
+            document.getElementById('btn-line').classList.toggle('active', type === 'line');
+            renderChart();
+        }
+
+        function selectCat(cat) {
+            selectedCategory = cat;
+            document.querySelectorAll('.category').forEach(el => {
+                el.classList.remove('selected');
+                if (el.innerText.includes(cat)) el.classList.add('selected');
+            });
+        }
+
+        function press(val) {
+            if (val === 'C') currentAmount = "0";
+            else if (val === '⌫') { currentAmount = currentAmount.slice(0, -1); if (currentAmount === "") currentAmount = "0"; }
+            else { if (currentAmount === "0") currentAmount = val; else currentAmount += val; }
+            document.getElementById('amount-text').innerText = currentAmount;
+        }
+
+        function submit() {
+            if (currentAmount === "0" || !selectedCategory) { alert("請選擇種類並輸入金額"); return; }
+            const date = document.getElementById('tx-date').value;
+            const newEntry = {
+                id: editId || Date.now(),
+                date: date,
+                category: selectedCategory,
+                amount: parseFloat(currentAmount)
+            };
+
+            if (editId) {
+                txData = txData.map(t => t.id === editId ? newEntry : t);
+            } else {
+                txData.push(newEntry);
+            }
+            
+            saveToLocal();
+            alert(editId ? "修改成功！" : "記帳成功！");
+            cancelEdit();
+        }
+
+        function startEdit(id, amount, category, date) {
+            editId = id;
+            currentAmount = amount.toString();
+            document.getElementById('amount-text').innerText = currentAmount;
+            document.getElementById('tx-date').value = date;
+            selectCat(category);
+            document.getElementById('edit-mode-label').style.display = 'block';
+            document.getElementById('btn-cancel').style.display = 'block';
+            document.getElementById('btn-submit').innerText = '儲存修改';
+            switchView('input');
+        }
+
+        function cancelEdit() {
+            editId = null;
+            currentAmount = "0";
+            document.getElementById('amount-text').innerText = "0";
+            document.getElementById('tx-date').value = new Date().toISOString().split('T')[0];
+            selectedCategory = "";
+            document.querySelectorAll('.category').forEach(el => el.classList.remove('selected'));
+            document.getElementById('edit-mode-label').style.display = 'none';
+            document.getElementById('btn-cancel').style.display = 'none';
+            document.getElementById('btn-submit').innerText = '確認送出';
+        }
+
+        function loadAnalysisData() {
+            const month = document.getElementById('month-input').value;
+            const filtered = txData.filter(t => t.date.startsWith(month)).sort((a,b) => a.date > b.date ? 1 : -1);
+            
+            const list = document.getElementById('details-list');
+            list.innerHTML = "";
+            let total = 0;
+            
+            filtered.slice().reverse().forEach(t => {
+                total += t.amount;
+                const row = `<tr>
+                    <td>${t.date.split('-').slice(1).join('/')}</td>
+                    <td>${t.category}</td>
+                    <td style="font-weight:bold">$${t.amount}</td>
+                    <td><div class="action-btns">
+                        <span onclick="startEdit(${t.id}, ${t.amount}, '${t.category}', '${t.date}')">✏️</span>
+                        <span onclick="deleteTx(${t.id})">🗑️</span>
+                    </div></td>
+                </tr>`;
+                list.innerHTML += row;
+            });
+            document.getElementById('total-amount').innerText = `$${total}`;
+            renderChart(filtered);
+        }
+
+        function deleteTx(id) {
+            if (!confirm("確定要刪除嗎？")) return;
+            txData = txData.filter(t => t.id !== id);
+            saveToLocal();
+            loadAnalysisData();
+        }
+
+        function renderChart(data) {
+            if (chart) chart.destroy();
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            if (chartType === 'doughnut') {
+                const summary = {};
+                data.forEach(t => { summary[t.category] = (summary[t.category] || 0) + t.amount; });
+                chart = new Chart(ctx, { type: 'doughnut', data: { labels: Object.keys(summary), datasets: [{ data: Object.values(summary), backgroundColor: ['#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff', '#ff9f40'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } } } });
+            } else {
+                const daily = {};
+                data.forEach(t => { daily[t.date] = (daily[t.date] || 0) + t.amount; });
+                const sortedDates = Object.keys(daily).sort();
+                chart = new Chart(ctx, { type: 'line', data: { labels: sortedDates.map(d => d.split('-')[2] + '日'), datasets: [{ label: '支出', data: sortedDates.map(d => daily[d]), borderColor: '#6c5ce7', tension: 0.1, fill: false, pointRadius: 2 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } }, plugins: { legend: { display: false } } } });
+            }
+        }
+
+        // Service Worker 註冊 (PWA 離線支援)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js?v=2').catch(() => {});
+        }
+    </script>
+</body>
+</html>
