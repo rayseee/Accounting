@@ -9,11 +9,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="極簡記帳本">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2654/2654416.png">
-    <link rel="manifest" href="./manifest.json?v=4">
+    <link rel="manifest" href="./manifest.json?v=5">
     <title>極簡記帳本</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
     <style>
-        :root { --primary: #6c5ce7; --bg: #f8fafd; --text: #2c3e50; --card-bg: #ffffff; --accent: #ff7675; --success: #00b894; }
+        :root { --primary: #6c5ce7; --bg: #f8fafd; --text: #2c3e50; --card-bg: #ffffff; --accent: #ff7675; --success: #00b894; --gray: #95a5a6; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
         html, body { height: 100%; height: -webkit-fill-available; margin: 0; padding: 0; overflow: hidden; }
         body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background-color: var(--bg); color: var(--text); display: flex; justify-content: center; width: 100vw; }
@@ -37,11 +37,11 @@
         .key { background: var(--card-bg); padding: 14px; text-align: center; border-radius: 12px; font-size: 1.2em; font-weight: 600; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.03); transition: 0.1s; }
         .key:active { background: #f1f2f6; transform: scale(0.95); }
         .action-area { flex-shrink: 0; margin-top: auto; padding-top: 10px; }
-        .btn-main { width: 100%; border: none; border-radius: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; height: 55px; }
+        .btn-main { width: 100%; border: none; border-radius: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; height: 50px; }
         .btn-submit { background: var(--success); color: white; font-size: 1.1em; box-shadow: 0 6px 15px rgba(0, 184, 148, 0.2); }
         .btn-cancel { background: #fab1a0; color: #d63031; display: none; font-size: 0.9em; margin-top: 8px; }
         #analysis-view { gap: 10px; }
-        .chart-container { background: var(--card-bg); padding: 12px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); flex-shrink: 0; min-height: 220px; display: flex; flex-direction: column;}
+        .chart-container { background: var(--card-bg); padding: 12px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); flex-shrink: 0; min-height: 200px; display: flex; flex-direction: column;}
         .chart-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .month-picker { border: none; background: #eee; padding: 5px 8px; border-radius: 6px; font-size: 0.85em; font-weight: bold; font-family: inherit; }
         .btn-group { display: flex; gap: 5px; }
@@ -56,6 +56,8 @@
         .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: #b2bec3; font-size: 0.9em; font-style: italic; }
         #other-input-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; border-radius: 10px; display: none; align-items: center; padding: 0 5px; border: 2px solid var(--primary); z-index: 10;}
         #other-input-field { width: 100%; border: none; font-size: 0.8em; text-align: center; font-family: inherit;}
+        .data-mgmt { padding: 15px; display: flex; gap: 10px; border-top: 1px solid #eee; flex-shrink: 0; }
+        .btn-outline { flex: 1; padding: 8px; border: 1px solid #ddd; background: white; border-radius: 8px; font-size: 0.75em; color: #7f8c8d; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -65,6 +67,7 @@
             <div id="tab-analysis" class="tab" onclick="switchView('analysis')">分析</div>
         </div>
 
+        <!-- 記帳頁 -->
         <div id="input-view" class="view active">
             <div class="input-header">
                 <span style="font-size: 0.85em; color: #636e72; font-weight: 600;">📅 日期</span>
@@ -101,6 +104,7 @@
             </div>
         </div>
 
+        <!-- 分析頁 -->
         <div id="analysis-view" class="view">
             <div class="chart-container">
                 <div class="chart-controls">
@@ -123,6 +127,11 @@
                     <table class="details-table">
                         <tbody id="details-list"></tbody>
                     </table>
+                </div>
+                <div class="data-mgmt">
+                    <button class="btn-outline" onclick="exportData()">💾 備份資料</button>
+                    <button class="btn-outline" onclick="document.getElementById('import-file').click()">📂 還原資料</button>
+                    <input type="file" id="import-file" style="display:none" onchange="importData(event)">
                 </div>
             </div>
         </div>
@@ -169,7 +178,6 @@
                     el.classList.add('selected');
                 }
             });
-            // 如果不是點擊「其他」相關，就重置其他標籤
             if (!cat.startsWith('📦')) {
                 document.getElementById('other-label').innerText = "📦 其他";
                 document.getElementById('other-input-container').style.display = 'none';
@@ -177,25 +185,16 @@
         }
 
         function toggleOtherInput() {
-            const container = document.getElementById('other-input-container');
-            const field = document.getElementById('other-input-field');
-            container.style.display = 'flex';
-            field.focus();
+            document.getElementById('other-input-container').style.display = 'flex';
+            document.getElementById('other-input-field').focus();
         }
 
         function confirmOther() {
             const val = document.getElementById('other-input-field').value.trim();
             const label = document.getElementById('other-label');
-            const container = document.getElementById('other-input-container');
-            
-            if (val) {
-                label.innerText = "📦 " + val;
-                selectCat("📦 " + val);
-            } else {
-                label.innerText = "📦 其他";
-                selectCat("其他");
-            }
-            container.style.display = 'none';
+            if (val) { label.innerText = "📦 " + val; selectCat("📦 " + val); }
+            else { label.innerText = "📦 其他"; selectCat("其他"); }
+            document.getElementById('other-input-container').style.display = 'none';
         }
 
         function press(val) {
@@ -220,14 +219,12 @@
             editId = id; currentAmount = amount.toString();
             document.getElementById('amount-text').innerText = currentAmount;
             document.getElementById('tx-date').value = date;
-            
             if (['飲食','交通','購物','帳單','娛樂','其他'].includes(category.replace('📦 ',''))) {
                 selectCat(category.replace('📦 ',''));
             } else {
                 document.getElementById('other-label').innerText = category.startsWith('📦') ? category : "📦 " + category;
                 selectCat(category.startsWith('📦') ? category : "📦 " + category);
             }
-            
             document.getElementById('edit-mode-label').style.display = 'block';
             document.getElementById('btn-cancel').style.display = 'block';
             document.getElementById('btn-submit').innerText = '儲存修改';
@@ -280,7 +277,38 @@
                 chart = new Chart(ctx, { type: 'line', data: { labels: sortedDates.map(d => d.split('-')[2] + '日'), datasets: [{ label: '支出', data: sortedDates.map(d => daily[d]), borderColor: '#6c5ce7', tension: 0.1, fill: false, pointRadius: 2 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } }, plugins: { legend: { display: false } } } });
             }
         }
-        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js?v=4').catch(() => {}); }
+
+        // --- 資料備份與還原 ---
+        function exportData() {
+            const blob = new Blob([JSON.stringify(txData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `記帳備份_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (Array.isArray(data)) {
+                        if (confirm("這將覆蓋現有資料，確定要還原嗎？")) {
+                            txData = data;
+                            saveToLocal();
+                            loadAnalysisData();
+                            alert("還原成功！");
+                        }
+                    }
+                } catch(err) { alert("檔案格式錯誤"); }
+            };
+            reader.readAsText(file);
+        }
+
+        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js?v=5').catch(() => {}); }
     </script>
 </body>
 </html>
